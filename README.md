@@ -6,44 +6,30 @@ Users can view movie shows, select seats visually, and book tickets online.
 The system prevents double booking using database transactions and stores all records digitally.
 
 ✨ Features
-
-User registration & login
-
-View shows by city and format (2D / 3D / IMAX / 4DX)
-
-Interactive seat map (shows booked & available seats)
-
-Seat types: Regular, Premium, VIP, Recliner
-
-Automatic ticket generation
-
-Booking & payment records stored in database
-
-Prevents double booking using seat locking
+1. User registration & login
+2. View shows by city and format (2D / 3D / IMAX / 4DX)
+3. Interactive seat map (shows booked & available seats)
+4. Seat types: Regular, Premium, VIP, Recliner
+5. Automatic ticket generation
+6. Booking & payment records stored in database
+7. Prevents double booking using seat locking
 
 🛠 Technologies Used
 
 Frontend
-
-HTML
-
-CSS
-
-JavaScript
+.HTML
+.CSS
+.JavaScript
 
 Backend
-
-Python (Flask)
+.Python (Flask)
 
 Database
-
-MySQL
+.MySQL
 
 Tools
-
-VS Code
-
-MySQL Workbench
+.VS Code
+.MySQL Workbench
 
 📁 Project Structure
 moving_booking/
@@ -106,17 +92,12 @@ http://127.0.0.1:5000
 
 🧠 How the System Works
 
-User registers or logs in
-
-System loads shows from MySQL database
-
-User selects seats visually
-
-Seats are locked using SQL transaction
-
-Booking & payment saved in database
-
-Ticket is generated instantly
+1. User registers or logs in
+2.System loads shows from MySQL database
+3.User selects seats visually
+4.Seats are locked using SQL transaction
+5.Booking & payment saved in database
+6.Ticket is generated instantly
 
 🔒 Double Booking Prevention
 
@@ -129,23 +110,15 @@ This ensures the same seat cannot be booked by multiple users.
 
 📊 Database Tables
 
-Movie
-
-Theater
-
-Screen
-
-Seat
-
-Show
-
-MovieUser
-
-Booking
-
-Ticket
-
-Payment
+.Movie
+.Theater
+.Screen
+.Seat
+.Show
+.MovieUse
+.Booking
+.Ticket
+.Payment
 
 📌 Note
 
