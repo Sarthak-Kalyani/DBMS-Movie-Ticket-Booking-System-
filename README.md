@@ -1,4 +1,4 @@
-# DBMS-Movie-Ticket-Booking-System-
+# DBMS-Movie-Ticket-Booking-System
 🎬 Movie Ticket Booking System
 
 A web-based movie ticket reservation system built using Python Flask and MySQL.
