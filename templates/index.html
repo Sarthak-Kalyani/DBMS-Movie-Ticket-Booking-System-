@@ -1,0 +1,257 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Movie Booking — v2</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 18px; background:#f6f7fb; color:#111; }
+    .topbar { display:flex; gap:12px; align-items:center; margin-bottom:12px; }
+    h1 { margin:0; font-size:24px; }
+    #filters { margin-left:16px; display:flex; gap:8px; align-items:center; }
+    select, input { padding:6px; border-radius:6px; border:1px solid #ddd; }
+    #authBox { margin-left:auto; background:#fff; padding:10px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.06); }
+    .main { display:flex; gap:18px; align-items:flex-start; }
+    #showsList { width:360px; background:#fff; padding:12px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+    .show-item { padding:8px; border-bottom:1px solid #f0f0f0; }
+    .screen-area { flex:1; background:#fff; padding:16px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+    .seat { width:34px; height:34px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; user-select:none; border:1px solid rgba(0,0,0,0.08); }
+    .seat.available{ background:#e8fff0; }
+    .seat.booked{ background:#ffecec; color:#a00; cursor:not-allowed; }
+    .seat.selected{ background:#fff5cc; border:1px solid #f0c36d; }
+    .seat.recliner{ box-shadow: inset 0 -4px 8px rgba(0,0,0,0.06); font-weight:700; }
+    .legend{ display:flex; gap:12px; margin-top:10px;}
+    .box{ width:18px; height:18px; border-radius:4px; }
+    #ticketBox { margin-top:12px; background:#fff; padding:12px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.04); }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Movie Booking (v2)</h1>
+    <div id="filters">
+      <label>City:
+        <select id="cityFilter"><option value="">All cities</option></select>
+      </label>
+      <label>Format:
+        <select id="formatFilter"><option value="">Any</option><option>2D</option><option>3D</option><option>IMAX</option><option>4DX</option></select>
+      </label>
+      <button onclick="applyFilters()">Apply</button>
+      <button onclick="resetFilters()">Reset</button>
+    </div>
+
+    <div id="authBox">
+      <div id="authLoggedOut">
+        <input id="loginEmail" placeholder="email" /><input id="loginPass" type="password" placeholder="password" />
+        <button onclick="doLogin()">Login</button>
+      </div>
+      <div id="authLoggedIn" style="display:none">
+        <span id="whoName"></span> <button onclick="doLogout()">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div id="showsList">
+      <div style="font-weight:700;margin-bottom:8px">Available Shows</div>
+      <div id="shows"></div>
+    </div>
+
+    <div class="screen-area" id="screenArea">
+      <div id="screenHeader" style="font-weight:700;text-align:center">Select a show</div>
+      <div id="seatContainer" style="min-height:300px; margin-top:12px">No show selected</div>
+
+      <div class="legend">
+        <div><div class="box" style="background:#e8fff0;margin-right:6px;display:inline-block"></div>Available</div>
+        <div><div class="box" style="background:#ffecec;margin-right:6px;display:inline-block"></div>Booked</div>
+        <div><div class="box" style="background:#fff5cc;margin-right:6px;display:inline-block"></div>Selected</div>
+        <div><div class="box" style="background:#f0e6ff;margin-right:6px;display:inline-block"></div>Recliner</div>
+      </div>
+
+      <div id="selectedInfo" style="margin-top:10px;font-weight:600;display:none"></div>
+      <button id="bookBtn" onclick="doBook()" disabled>Book Selected Seats</button>
+
+      <div id="ticketBox" style="display:none"></div>
+    </div>
+  </div>
+
+<script>
+let shows = [], cities = new Set();
+let currentShow = null, seatMap = {}, selected = new Set();
+
+async function init(){
+  await loadShows(); await whoami();
+}
+
+async function loadShows(city='', fmt=''){
+  const q = new URLSearchParams();
+  if(city) q.append('city', city);
+  if(fmt) q.append('format', fmt);
+  const res = await fetch('/shows?' + q.toString());
+  shows = await res.json();
+  renderShows();
+  populateCityOptions(shows);
+}
+
+function populateCityOptions(arr){
+  arr.forEach(s=> cities.add(s.city));
+  const sel = document.getElementById('cityFilter');
+  // clear then add unique
+  sel.innerHTML = '<option value="">All cities</option>';
+  Array.from(cities).sort().forEach(c=>{
+    const o = document.createElement('option'); o.value = c; o.innerText = c; sel.appendChild(o);
+  });
+}
+
+function renderShows(){
+  const el = document.getElementById('shows');
+  el.innerHTML = '';
+  if(shows.length===0){ el.innerHTML = '<div class="small">No shows</div>'; return; }
+  shows.forEach(s=>{
+    const d = document.createElement('div'); d.className='show-item';
+    d.innerHTML = `<div style="display:flex;justify-content:space-between">
+      <div>
+        <strong>${s.title}</strong>
+        <div>${s.theater} (${s.city})</div>
+        <div>Screen: ${s.screen} • Format: ${s.format}</div>
+      </div>
+      <div style="text-align:right">
+        <div>${new Date(s.start_time).toUTCString().replace(' GMT','')}</div>
+        <div style="margin-top:8px"><button onclick="selectShow(${s.id},'${s.title.replace(/'/g,"\\'")}')">View Seats</button></div>
+      </div>
+    </div>`;
+    el.appendChild(d);
+  });
+}
+
+function applyFilters(){
+  const city = document.getElementById('cityFilter').value;
+  const fmt = document.getElementById('formatFilter').value;
+  loadShows(city, fmt);
+}
+
+function resetFilters(){
+  document.getElementById('cityFilter').value=''; document.getElementById('formatFilter').value='';
+  loadShows();
+}
+
+async function selectShow(id, title){
+  currentShow = id;
+  selected.clear();
+  document.getElementById('ticketBox').style.display='none';
+  document.getElementById('screenHeader').innerText = title;
+  await loadSeats(id);
+}
+
+async function loadSeats(showId){
+  const c = document.getElementById('seatContainer');
+  c.innerHTML = 'Loading seats...';
+  const res = await fetch('/seats_status/' + showId);
+  if(!res.ok){ c.innerHTML='Error loading seats'; return; }
+  const j = await res.json();
+  const meta = j.meta; const seats = j.seats;
+  document.getElementById('screenHeader').innerText = `${meta.theater_name} • ${meta.screen_name} • ${meta.city}`;
+  seatMap = {}; const rows = {};
+  seats.forEach(s=>{ seatMap[s.id] = s; if(!rows[s.row_label]) rows[s.row_label]=[]; rows[s.row_label].push(s); });
+  const labels = Object.keys(rows).sort();
+  const grid = document.createElement('div');
+  labels.forEach(lbl=>{
+    rows[lbl].sort((a,b)=>a.seat_number - b.seat_number);
+    const rowdiv = document.createElement('div'); rowdiv.style.display='flex'; rowdiv.style.gap='6px'; rowdiv.style.margin='6px 0'; 
+    const lab = document.createElement('div'); lab.style.width='28px'; lab.style.textAlign='center'; lab.style.fontWeight='600'; lab.innerText=lbl;
+    rowdiv.appendChild(lab);
+    rows[lbl].forEach(s=>{
+      const sd = document.createElement('div'); sd.className = 'seat ' + (s.is_booked ? 'booked' : 'available') + (s.seat_type==='Recliner'? ' recliner':'');
+      sd.dataset.id = s.id; sd.innerText = s.seat_number; sd.title = `${lbl}${s.seat_number} ${s.seat_type}${s.is_booked? ' (Booked)':''}`;
+      if(!s.is_booked) sd.onclick = ()=> toggleSeat(s.id);
+      rowdiv.appendChild(sd);
+    });
+    grid.appendChild(rowdiv);
+  });
+  c.innerHTML=''; c.appendChild(grid);
+  document.getElementById('selectedInfo').style.display='none'; document.getElementById('bookBtn').disabled=true;
+}
+
+function toggleSeat(id){
+  const s = seatMap[id]; if(!s || s.is_booked) return;
+  const el = document.querySelector(`.seat[data-id='${id}']`);
+  if(selected.has(id)){ selected.delete(id); el.classList.remove('selected'); } 
+  else { selected.add(id); el.classList.add('selected'); }
+  updateSelectionInfo();
+}
+
+function updateSelectionInfo(){
+  const info = document.getElementById('selectedInfo');
+  if(selected.size===0){ info.style.display='none'; document.getElementById('bookBtn').disabled=true; return; }
+  const seatList = Array.from(selected).map(i=> seatMap[i].row_label + seatMap[i].seat_number).join(', ');
+  // compute total using seat multipliers via backend? we'll compute using disclosed multipliers here (must match backend)
+  let total = 0, base = 0;
+  // find base price from shows list (cheap route)
+  const s = shows.find(x=> x.id === currentShow) || shows.find(x=> x.id == currentShow);
+  base = s ? s.price : 200;
+  selected.forEach(i=>{
+    const st = seatMap[i].seat_type || 'Regular';
+    let mult = 1.0;
+    if(st==='Premium') mult=1.2;
+    else if(st==='VIP') mult=1.4;
+    else if(st==='Recliner') mult=1.6;
+    total += (base * mult);
+  });
+  info.style.display='block'; info.innerText = `Selected (${selected.size}): ${seatList} — Total: ₹${total.toFixed(2)}`;
+  document.getElementById('bookBtn').disabled = false;
+}
+
+async function doBook(){
+  if(selected.size===0) return alert('Select seats');
+  if(!confirm('Confirm booking?')) return;
+  const arr = Array.from(selected);
+  const payload = { show_id: currentShow, seat_ids: arr };
+  // rely on session login; backend will reject if not logged in and no user_id passed
+  const res = await fetch('/book', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const j = await res.json();
+  if(res.ok && j.success){
+    alert('Booked: ' + j.booking_id);
+    // fetch booking detail and show ticket
+    await showTicket(j.booking_id);
+    await loadSeats(currentShow);
+    selected.clear(); document.getElementById('selectedInfo').style.display='none';
+  } else {
+    alert('Booking failed: ' + (j.error || JSON.stringify(j)));
+    await loadSeats(currentShow);
+  }
+}
+
+async function showTicket(booking_id){
+  const res = await fetch('/booking/' + booking_id);
+  if(!res.ok) return;
+  const j = await res.json();
+  const b = j.booking; const t = j.tickets;
+  let html = `<div style="font-weight:700">Ticket — Booking #${b.booking_id}</div>`;
+  html += `<div>${b.movie_title} • ${b.theater_name} • ${b.screen_name} • ${new Date(b.show_time).toUTCString().replace(' GMT','')}</div>`;
+  html += `<div style="margin-top:8px">Seats: ${t.map(x=>x.seat_label).join(', ')}</div>`;
+  html += `<div style="margin-top:6px">Per-seat details:</div><ul>`;
+  t.forEach(x=> html += `<li>${x.seat_label} (${x.seat_type}) — ₹${x.price.toFixed(2)}</li>`);
+  html += `</ul><div style="margin-top:8px;font-weight:700">Total: ₹${b.total_amount.toFixed(2)}</div>`;
+  const box = document.getElementById('ticketBox'); box.innerHTML = html; box.style.display='block';
+}
+
+async function whoami(){
+  try {
+    const r = await fetch('/whoami'); const j = await r.json();
+    if(j.logged_in){ document.getElementById('authLoggedOut').style.display='none'; document.getElementById('authLoggedIn').style.display='block'; document.getElementById('whoName').innerText=j.name; }
+    else { document.getElementById('authLoggedOut').style.display='block'; document.getElementById('authLoggedIn').style.display='none'; }
+  } catch(e){ console.error(e); }
+}
+
+async function doLogin(){
+  const email = document.getElementById('loginEmail').value, pass = document.getElementById('loginPass').value;
+  const res = await fetch('/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password: pass})});
+  const j = await res.json(); if(res.ok && j.success){ alert('Logged in'); whoami(); } else alert('Login failed: '+ (j.error||JSON.stringify(j)));
+}
+
+async function doLogout(){
+  await fetch('/logout'); whoami(); alert('Logged out');
+}
+
+init();
+</script>
+</body>
+</html>
