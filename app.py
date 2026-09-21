@@ -11,10 +11,12 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('APP_SECRET', 'change_this_to_a_random_secret_123')
 
 db_cfg = {
-    'user': 'root',
-    'password': 'S@rthak20',
-    'host': '127.0.0.1',
-    'database': 'movie_booking'
+    'user': os.environ.get('DB_USER'),
+    'password': os.environ.get('DB_PASSWORD'),
+    'host': os.environ.get('DB_HOST'),
+    'port': int(os.environ.get('DB_PORT', '3306')),
+    'database': os.environ.get('DB_NAME'),
+    'ssl_disabled': False
 }
 
 def get_conn():
